@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  db:
+    build:
+      context: ./docker/db
+      dockerfile: Dockerfile
+    container_name: taxi_db
+    environment:
+      POSTGRES_DB: taxi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d taxi"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: taxi_app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/taxi
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+    ports:
+      - "8501:8501"
+    # Alternatively, place GOOGLE_API_KEY in a .env file at project root
+    # env_file:
+    #   - .env
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+
+  etl:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: taxi_etl
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/taxi
+    command: ["python", "etl/load_tlc.py", "--month", "2019-01", "--limit", "20000"]
+    restart: "no"
+
+networks:
+  default:
+    name: taxi_net
+    driver: bridge

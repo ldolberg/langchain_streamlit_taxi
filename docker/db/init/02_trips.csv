@@ -1,0 +1,2 @@
+pickup_datetime,dropoff_datetime,passenger_count,trip_distance,pickup_location_id,dropoff_location_id,fare_amount,tip_amount,total_amount,payment_type
+2019-01-01 08:15:00,2019-01-01 08:35:00,1,5.2,142,236,16.50,3.00,20.50,Credit

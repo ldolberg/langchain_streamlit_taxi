@@ -1,0 +1,9 @@
+streamlit==1.36.0
+pandas==2.2.2
+sqlalchemy==2.0.32
+psycopg2-binary==2.9.9
+langchain==0.2.13
+langchain-community==0.2.12
+langchain-google-genai==1.0.7
+google-genai==0.3.0
+python-dotenv==1.0.1
