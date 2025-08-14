@@ -25,10 +25,17 @@ except Exception:
 
 
 # App config
-st.set_page_config(page_title="Taxi SQL Chat (Gemini + LangChain)", page_icon="🚕", layout="wide")
+st.set_page_config(
+    page_title="Taxi SQL Chat (Gemini + LangChain)",
+    page_icon="🚕",
+    layout="wide",
+)
 
 st.title("🚕 Taxi SQL Chat — LangChain + Gemini + Postgres")
-st.caption("Ask natural language questions; the app generates SQL for Postgres using Google Gemini and runs it against a small Taxi dataset.")
+st.caption(
+    "Ask natural language questions; the app generates SQL for Postgres using "
+    "Google Gemini and runs it against a small Taxi dataset."
+)
 
 # Environment & connections
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://postgres:postgres@db:5432/taxi")
@@ -37,7 +44,10 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 with st.sidebar:
     st.header("Settings")
     api_key_input = st.text_input(
-        "Google API Key (Gemini)", value=GOOGLE_API_KEY, type="password", help="If not set as env var, paste it here."
+        "Google API Key (Gemini)",
+        value=GOOGLE_API_KEY,
+        type="password",
+        help="If not set as env var, paste it here.",
     )
     if api_key_input:
         os.environ["GOOGLE_API_KEY"] = api_key_input
@@ -60,18 +70,24 @@ with st.sidebar:
     temperature = st.slider("Temperature", 0.0, 1.0, 0.1, 0.1)
 
     st.subheader("Query defaults")
-    default_limit = st.number_input("Default LIMIT", min_value=10, max_value=1000, value=50, step=10)
+    default_limit = st.number_input(
+        "Default LIMIT", min_value=10, max_value=1000, value=50, step=10
+    )
 
     st.subheader("Data loader (NYC TLC)")
     month = st.text_input("Month (YYYY-MM)", value="2019-01")
-    etl_limit = st.number_input("Rows to load", min_value=1000, max_value=200000, value=20000, step=1000)
+    etl_limit = st.number_input(
+        "Rows to load", min_value=1000, max_value=200000, value=20000, step=1000
+    )
     if st.button("Load month into Postgres"):
         if etl_load_month is None:
             st.error("ETL module not available in this build.")
         else:
             try:
                 engine = create_engine(DATABASE_URL)
-                with st.spinner(f"Loading NYC TLC {month} ({etl_limit} rows)..."):
+                with st.spinner(
+                    f"Loading NYC TLC {month} ({etl_limit} rows)..."
+                ):
                     etl_ensure_schema(engine)  # type: ignore
                     inserted = etl_load_month(engine, month, int(etl_limit))  # type: ignore
                 st.success(f"Inserted {inserted} rows from {month}.")
@@ -178,7 +194,12 @@ def get_schema_df(db_url: str) -> pd.DataFrame:
 def preview_table(db_url: str, limit: int = 50) -> pd.DataFrame:
     engine = create_engine(db_url)
     with engine.connect() as conn:
-        return pd.read_sql_query(text(f"SELECT * FROM yellow_trips ORDER BY pickup_datetime DESC LIMIT {int(limit)}"), conn)
+        return pd.read_sql_query(
+            text(
+                f"SELECT * FROM yellow_trips ORDER BY pickup_datetime DESC LIMIT {int(limit)}"
+            ),
+            conn,
+        )
 
 
 def render_charts(df: pd.DataFrame):
@@ -202,7 +223,13 @@ def render_charts(df: pd.DataFrame):
             x_col = cat_cols[0]
             y_col = num_cols[0]
             # For large cardinality, show top 30
-            top = df.groupby(x_col)[y_col].sum().reset_index().sort_values(y_col, ascending=False).head(30)
+            top = (
+                df.groupby(x_col)[y_col]
+                .sum()
+                .reset_index()
+                .sort_values(y_col, ascending=False)
+                .head(30)
+            )
             chart = (
                 alt.Chart(top)
                 .mark_bar()
@@ -300,7 +327,9 @@ if submit and question:
             render_charts(df)
         with tabs[2]:
             st.code(sql_to_run, language="sql")
-            explain = st.checkbox("Show EXPLAIN plan", value=False, key="explain")
+            explain = st.checkbox(
+                "Show EXPLAIN plan", value=False, key="explain"
+            )
             if explain:
                 try:
                     with engine.connect() as conn:

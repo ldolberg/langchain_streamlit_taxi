@@ -1,14 +1,14 @@
 import argparse
-import io
 import os
-from datetime import datetime
 
 import pandas as pd
 from sqlalchemy import create_engine, text
 
 # TLC base URL for yellow taxi tripdata parquet files
 # Example: https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2019-01.parquet
-TLC_BASE = "https://d37ci6vzurychx.cloudfront.net/trip-data"
+TLC_BASE = (
+    "https://d37ci6vzurychx.cloudfront.net/trip-data"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -38,7 +38,8 @@ def ensure_schema(engine) -> None:
         total_amount NUMERIC(10,2),
         payment_type TEXT
     );
-    CREATE INDEX IF NOT EXISTS idx_yellow_trips_pickup_datetime ON yellow_trips (pickup_datetime);
+    CREATE INDEX IF NOT EXISTS idx_yellow_trips_pickup_datetime
+    ON yellow_trips (pickup_datetime);
     """
     with engine.begin() as conn:
         conn.execute(text(create_sql))
