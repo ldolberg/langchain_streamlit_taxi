@@ -18,6 +18,11 @@ except Exception:
     etl_load_month = None
     etl_ensure_schema = None
 
+try:
+    from google.api_core import exceptions as google_exceptions  # type: ignore
+except Exception:
+    google_exceptions = None  # type: ignore
+
 
 # App config
 st.set_page_config(page_title="Taxi SQL Chat (Gemini + LangChain)", page_icon="🚕", layout="wide")
@@ -112,6 +117,32 @@ def sanitize_sql_text(text_value: str) -> str:
     if not cleaned.rstrip().endswith(";"):
         cleaned = cleaned.rstrip() + ";"
     return cleaned
+
+
+def is_quota_error(err: Exception) -> bool:
+    msg = str(err).lower()
+    keywords = [
+        "quota",
+        "exceeded",
+        "rate limit",
+        "too many requests",
+        "resource exhausted",
+        "429",
+    ]
+    if any(k in msg for k in keywords):
+        return True
+    if google_exceptions is not None:
+        quota_types = tuple(
+            t
+            for t in [
+                getattr(google_exceptions, "ResourceExhausted", None),
+                getattr(google_exceptions, "TooManyRequests", None),
+            ]
+            if t is not None
+        )
+        if quota_types and isinstance(err, quota_types):
+            return True
+    return False
 
 
 def build_fix_sql_prompt(question: str, schema: str, bad_sql: str, error_message: str, hint: Optional[str] = None, default_limit: int = 50) -> str:
@@ -213,7 +244,13 @@ if submit and question:
     with st.spinner("Reading schema and generating SQL with Gemini..."):
         schema_info = db.get_table_info()
         prompt = build_sql_prompt(question, schema_info, hint, default_limit)
-        sql_text = llm.invoke(prompt).content
+        try:
+            sql_text = llm.invoke(prompt).content
+        except Exception as e:
+            if is_quota_error(e):
+                st.error(f"Gemini quota exceeded or rate-limited. Please wait and try again. Details: {e}")
+                st.stop()
+            raise
         sql_query = sanitize_sql_text(sql_text)
 
     st.subheader("Generated SQL")
@@ -237,7 +274,13 @@ if submit and question:
                 break
             with st.spinner(f"SQL failed (attempt {attempt}). Asking Gemini to fix and retry..."):
                 fix_prompt = build_fix_sql_prompt(question, schema_info, sql_to_run, last_error, hint, default_limit)
-                fixed_sql_text = llm.invoke(fix_prompt).content
+                try:
+                    fixed_sql_text = llm.invoke(fix_prompt).content
+                except Exception as e2:
+                    if is_quota_error(e2):
+                        st.error(f"Gemini quota exceeded or rate-limited during fix. Please wait and try again. Details: {e2}")
+                        st.stop()
+                    raise
                 sql_to_run = sanitize_sql_text(fixed_sql_text)
                 st.subheader(f"Corrected SQL (attempt {attempt + 1})")
                 st.code(sql_to_run, language="sql")
@@ -276,8 +319,11 @@ if submit and question:
                 )
                 nl_answer = llm.invoke(summary_prompt).content
                 st.write(nl_answer)
-            except Exception:
-                st.caption("Summary unavailable.")
+            except Exception as e_sum:
+                if is_quota_error(e_sum):
+                    st.caption("Summary unavailable due to quota limits.")
+                else:
+                    st.caption("Summary unavailable.")
         with tabs[4]:
             csv_bytes = df.to_csv(index=False).encode("utf-8")
             st.download_button("Download CSV", data=csv_bytes, file_name="results.csv", mime="text/csv")
@@ -298,7 +344,8 @@ if submit and question:
             nl_answer = llm.invoke(summary_prompt).content
             st.subheader("Answer")
             st.write(nl_answer)
-        except Exception:
+        except Exception as e_sum2:
+            # Do not stop the app for summary errors
             pass
 
         # Save to history
