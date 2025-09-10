@@ -50,7 +50,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/taxi
-    command: ["python", "etl/load_tlc.py", "--month", "2019-01", "--limit", "20000"]
+    command: ["python", "etl/load_tlc.py", "--month", "2019-01", "--limit", "50000"]
     restart: "no"
 
 networks:
